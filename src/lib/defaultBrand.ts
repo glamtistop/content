@@ -1,0 +1,106 @@
+import type { BrandProfile } from "./types";
+import { uid, nowISO } from "./util";
+
+export function printQueenBrand(): BrandProfile {
+  const t = nowISO();
+  return {
+    id: uid(),
+    name: "Print Queen 3D",
+    niche: "Personalized manufacturing: custom 3D printing, UV printing, promotional merchandise, gifts and custom design",
+    website: "https://www.printqueen3d.com",
+    handles: { tiktok: "@printqueen3d", instagram: "@printqueen3d", facebook: "@printqueen3d" },
+    accountTypes: { tiktok: "Business", instagram: "Business", facebook: "Page" },
+    location: "Los Angeles, California, USA",
+    creatorTimezone: "America/Los_Angeles",
+    platformTimezones: {
+      tiktok: "America/Los_Angeles",
+      instagram: "America/Los_Angeles",
+      facebook: "America/Los_Angeles",
+    },
+    audienceTimezones: ["America/Los_Angeles", "America/New_York"],
+    targetAudience:
+      "Los Angeles and Southern California shoppers, nationwide custom-product buyers, small businesses, and event customers (weddings, parties, corporate events)",
+    audienceLocations: "United States — Los Angeles, Southern California, nationwide",
+    languages: "English",
+    equipment: ["xTool O1 Omni Dual UV Printer", "Bambu Lab X1C", "Bambu Lab H2D"],
+    products: [
+      "Custom 3D-printed products",
+      "Full-color UV-printed products",
+      "Personalized acrylic photo keychains",
+      "NFC payment and business stands",
+      "Custom NFC keychains",
+      "Branded merchandise",
+      "Personalized names and accessories",
+      "Event and wedding favors",
+      "Promotional items",
+      "Memorial keepsakes",
+      "Custom gifts",
+      "Business signage",
+      "Bulk custom orders",
+    ],
+    capabilities: [
+      { name: "Full-color UV printing on 3D-printed bases", status: "tested" },
+      { name: "PLA 3D printing", status: "tested" },
+      { name: "Acrylic photo keychains", status: "available" },
+      { name: "NFC tag embedding", status: "available" },
+      { name: "Multi-material 3D printing (H2D)", status: "experimental" },
+    ],
+    buyingMotivations: "Unique personalized gifts, event favors that match a theme, branded items that make a small business look professional, keepsakes",
+    salesChannels: "Website (printqueen3d.com), Instagram and TikTok DMs, local pickup in Los Angeles",
+    pricing: "",
+    ctas: [
+      "Order at PrintQueen3D.com",
+      "Request a Custom Quote",
+      "Shop Personalized Gifts",
+      "DM for Details",
+      "Ask About Bulk Pricing",
+      "Follow for Part 2",
+      "Save This Idea",
+      "Share With Someone Who Needs It",
+    ],
+    colors: { primary: "#000000", secondary: "#17191B", accent: "#19D3C5", detail: "#C9A85A" },
+    vocabulary: "custom, personalized, full-color, made in LA, one-of-a-kind",
+    avoid: "Prices or deadlines that aren't confirmed; claims about materials or finishes not marked tested",
+    contentUse: "commercial",
+    onCamera: true,
+    formatPrefs: { voiceover: true, captions: true, music: true, textOnly: true },
+    tone: "confident",
+    customTone: "",
+    musicStyles: "Trending hip-hop, West Coast beats, luxury lifestyle, upbeat product reveal",
+    excludedMusic: "",
+    objective: "custom_orders",
+    approvedExamples: [],
+    onboarded: false,
+    createdAt: t,
+    updatedAt: t,
+  };
+}
+
+export function blankBrand(): BrandProfile {
+  const b = printQueenBrand();
+  const t = nowISO();
+  return {
+    ...b,
+    id: uid(),
+    name: "New brand",
+    niche: "",
+    website: "",
+    handles: { tiktok: "", instagram: "", facebook: "" },
+    location: "",
+    targetAudience: "",
+    audienceLocations: "",
+    equipment: [],
+    products: [],
+    capabilities: [],
+    buyingMotivations: "",
+    salesChannels: "",
+    vocabulary: "",
+    avoid: "",
+    ctas: ["DM for Details", "Follow for Part 2", "Save This Idea"],
+    musicStyles: "",
+    objective: "engagement",
+    onboarded: false,
+    createdAt: t,
+    updatedAt: t,
+  };
+}
