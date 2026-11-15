@@ -6,6 +6,11 @@ import { Notice } from "@/components/ui";
 import { CLOUD_ENABLED } from "@/lib/config";
 import { supabase } from "@/lib/store";
 
+/** Where confirmation and reset emails send people back: this app, not the Supabase "Site URL". */
+function appUrl() {
+  return location.origin + (process.env.NEXT_PUBLIC_BASE_PATH || "") + "/";
+}
+
 export default function Login() {
   const router = useRouter();
   const [mode, setMode] = useState<"in" | "up" | "reset">("in");
@@ -32,12 +37,12 @@ export default function Login() {
         if (error) throw error;
         location.assign((process.env.NEXT_PUBLIC_BASE_PATH || "") + "/");
       } else if (mode === "up") {
-        const { data, error } = await sb.auth.signUp({ email, password: pw });
+        const { data, error } = await sb.auth.signUp({ email, password: pw, options: { emailRedirectTo: appUrl() } });
         if (error) throw error;
         if (data.session) location.assign((process.env.NEXT_PUBLIC_BASE_PATH || "") + "/");
         else setMsg({ kind: "info", text: "Check your email to confirm your account, then sign in." });
       } else {
-        const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + (process.env.NEXT_PUBLIC_BASE_PATH || "") + "/login/" });
+        const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: appUrl() });
         if (error) throw error;
         setMsg({ kind: "info", text: "If that email has an account, a reset link is on its way." });
       }
