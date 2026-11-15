@@ -27,29 +27,21 @@ CP_MEDIA=/path/to/testmedia python3 e2e/test_e2e.py
 ```
 The test media folder needs `keychain.jpg`, `clip-vertical.mp4`, `clip-horizontal.mov` and a `fake.jpg` (any non-image bytes).
 
-## Set up accounts and AI (about 20 minutes)
+## Set up accounts and AI
 
-1. **Create a Supabase project** at supabase.com (the free tier is enough to start).
-2. **Create the database:** in the SQL editor, paste and run `supabase/migrations/001_init.sql`. This creates every table with owner-only row-level security and a private `media` bucket.
-3. **Auth:** Authentication → Providers → keep Email enabled. Under URL Configuration, set Site URL to where you'll host the app (e.g. `https://glamtistop.github.io/content/`).
-4. **Deploy the AI function** with the Supabase CLI:
-   ```bash
-   supabase login
-   supabase link --project-ref <your-ref>
-   supabase functions deploy ai
-   supabase secrets set AI_PROVIDER=gemini GEMINI_API_KEY=<key> MONTHLY_AI_CALL_LIMIT=300
-   ```
-   - Gemini key: aistudio.google.com. Turn on billing for the key: the free tier may use your data to improve Google's models, and the paid tier doesn't.
-   - Or use Claude: `AI_PROVIDER=anthropic ANTHROPIC_API_KEY=<key>` from console.anthropic.com. This bills separately from a Claude.ai subscription. Claude reads photos and video frames but not audio, so clip transcripts need Gemini.
-   - Set a spending cap in the provider's console as well. `MONTHLY_AI_CALL_LIMIT` is a second guard.
-5. **Point the app at Supabase:** copy `.env.example` to `.env.local` and fill in `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` (Project Settings → API). The anon key is public by design; row-level security protects the data.
-6. Rebuild. Open the app, create your account, then go to **Settings → Test AI connection**.
+Follow **[SUPABASE_SETUP.md](SUPABASE_SETUP.md)** for step-by-step instructions, all done in the browser. In short:
+1. Create a Supabase project and run `supabase/migrations/001_init.sql` in the SQL Editor.
+2. Set Auth URLs to `https://glamtistop.github.io/content/`.
+3. Add GitHub Actions variables `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (`sb_publishable_…`), then re-run the deploy.
+4. For AI: deploy `supabase/functions/ai` (name `ai`, JWT verification off; the function checks the user itself), then add the secrets `AI_PROVIDER`, `GEMINI_API_KEY` (or `ANTHROPIC_API_KEY`) and `MONTHLY_AI_CALL_LIMIT`.
+
+For local development, copy `.env.example` to `.env.local`.
 
 ## Deploy to GitHub Pages (auto-updates your Home Screen app)
 
 1. This repository is `glamtistop/content`; merging to `main` deploys.
 2. Repository → Settings → Pages → Source: **GitHub Actions**.
-3. Repository → Settings → Secrets and variables → Actions → **Variables**: add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` (skip both for this-device mode).
+3. Repository → Settings → Secrets and variables → Actions → **Variables**: add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (skip both for this-device mode).
 4. Every push to `main` runs the tests, builds, and publishes to `https://<user>.github.io/<repo>/`.
 5. On iPhone, open it in Safari → Share → **Add to Home Screen**. On a Mac in Safari, use File → **Add to Dock**. Updates arrive on the next launch with no reinstalling.
 

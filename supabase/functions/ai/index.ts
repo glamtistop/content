@@ -7,9 +7,27 @@
 //   GEMINI_API_KEY, GEMINI_MODEL            (default gemini-3.6-flash)
 //   ANTHROPIC_API_KEY, ANTHROPIC_MODEL      (default claude-sonnet-5-5)
 //   MONTHLY_AI_CALL_LIMIT                   (default 300; 0 = no limit)
-// Provided automatically by Supabase: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
+// Provided automatically by Supabase: SUPABASE_URL plus SUPABASE_PUBLISHABLE_KEYS / SUPABASE_SECRET_KEYS
+// (or the legacy SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY on older projects).
+// Deploy with "Verify JWT" OFF: this function verifies the signed-in user itself (auth.getUser below).
 
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
+
+// Supabase injects keys as JSON dictionaries (new projects) and/or legacy single keys (older projects).
+function supabaseKey(jsonVar: string, legacyVar: string): string {
+  try {
+    const raw = Deno.env.get(jsonVar);
+    if (raw) {
+      const keys = JSON.parse(raw) as Record<string, string>;
+      const k = keys["default"] ?? Object.values(keys)[0];
+      if (k) return k;
+    }
+  } catch { /* fall back to the legacy variable */ }
+  return Deno.env.get(legacyVar) ?? "";
+}
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const PUBLISHABLE_KEY = supabaseKey("SUPABASE_PUBLISHABLE_KEYS", "SUPABASE_ANON_KEY");
+const SECRET_KEY = supabaseKey("SUPABASE_SECRET_KEYS", "SUPABASE_SERVICE_ROLE_KEY");
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -99,7 +117,7 @@ async function callGemini(system: string, parts: Part[]) {
 async function callAnthropic(system: string, parts: Part[]) {
   const key = Deno.env.get("ANTHROPIC_API_KEY");
   if (!key) throw Object.assign(new Error("ANTHROPIC_API_KEY is not set on the server."), { code: "not_configured" });
-  const content = parts.flatMap((p) => "text" in p ? [{ type: "text", text: p.text }]
+  const content = parts.flatMap<Record<string, unknown>>((p) => "text" in p ? [{ type: "text", text: p.text }]
     : "image" in p ? [{ type: "image", source: { type: "base64", media_type: p.image.mime, data: p.image.b64 } }]
     : [{ type: "text", text: "(A full video file was attached, but this provider reads frames only; no audio transcript is available.)" }]);
   const r = await fetch("https://api.anthropic.com/v1/messages", {
@@ -132,8 +150,8 @@ Deno.serve(async (req) => {
   if (Number(req.headers.get("content-length") ?? 0) > MAX_BODY) return json({ ok: false, code: "too_large", error: "That's too much media for one request. Try fewer or shorter clips." }, 413);
 
   const auth = req.headers.get("Authorization") ?? "";
-  const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: auth } } });
-  const { data: u } = await sb.auth.getUser();
+  const sb = createClient(SUPABASE_URL, PUBLISHABLE_KEY, { global: { headers: { Authorization: auth } } });
+  const { data: u } = await sb.auth.getUser(auth.replace(/^Bearer\s+/i, ""));
   if (!u?.user) return json({ ok: false, code: "unauthorized", error: "Sign in again." }, 401);
   const uid = u.user.id;
 
@@ -151,7 +169,7 @@ Deno.serve(async (req) => {
   }
 
   if (action === "delete_account") {
-    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const admin = createClient(SUPABASE_URL, SECRET_KEY);
     // remove every stored file under this user's folder, then the user (tables cascade)
     const { data: projects } = await admin.storage.from("media").list(uid, { limit: 1000 });
     for (const p of projects ?? []) {
