@@ -1,0 +1,3 @@
+# Used by the Supabase CLI. The ai function verifies the signed-in user in its own code.
+[functions.ai]
+verify_jwt = false

@@ -1,7 +1,8 @@
 // Public build-time config. Only the Supabase URL and anon key are public by design;
 // every secret (AI keys) lives in Supabase Edge Function secrets, never in this bundle.
 export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-export const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+// The publishable key (sb_publishable_…) replaces the legacy anon key; either works here.
+export const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 export const CLOUD_ENABLED = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 export const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
