@@ -2,12 +2,34 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { analyze, generate, type GenOptions } from "@/lib/generate";
 import { reviewPlan } from "@/lib/generate/review";
+import { generateTemplatePlan } from "@/lib/generate/template";
 import { previewFor } from "@/lib/ingest";
-import type { ContentPlan, MediaAsset, Project, SectionKey, Version } from "@/lib/types";
+import { diffPlans, hookAvoider, memoryForPrompt, norm } from "@/lib/memory";
+import type { ContentPlan, DecisionEvent, MediaAsset, MemoryField, Platform, Project, ReasonCode, SectionKey, Version } from "@/lib/types";
 import { deepClone, nowISO, uid } from "@/lib/util";
 import { useApp } from "../AppProvider";
+import { useBrandMemory, type NewDecision } from "./useBrandMemory";
 
 export type SaveState = "saved" | "saving" | "error";
+
+/** What a section's text is, for memory (feature 5). */
+function sectionMemory(plan: ContentPlan, key: SectionKey): { field: MemoryField; platform?: Platform; text: string } {
+  if (key === "hooks") return { field: "hook", text: plan.hooks[plan.recommendedHook.index]?.text ?? "" };
+  if (key === "script") return { field: "spoken", text: plan.segments.map((s) => s.spoken).filter(Boolean).join(" ") };
+  if (key === "shortScript") return { field: "shortScript", text: plan.shortScript };
+  if (key === "photo") return { field: "photoCaption", text: plan.photo?.captions.join("\n") ?? "" };
+  if (key === "cover") return { field: "coverHeadline", text: plan.cover.headlines.premium };
+  const [, pl, f] = key.split(".") as [string, Platform, string];
+  const k = plan.packages[pl];
+  const map: Record<string, [MemoryField, string]> = {
+    caption: ["caption", k.caption], hashtags: ["hashtags", k.hashtags.map((h) => h.tag).join(" ")], cta: ["cta", k.cta],
+    onScreenText: ["onScreen", k.onScreenText.join("\n")], coverHeadline: ["coverHeadline", k.coverHeadline], audio: ["all", k.audio.suggestion],
+  };
+  const [field, text] = map[f] ?? ["all", ""];
+  return { field, platform: pl, text };
+}
+
+export interface ReasonAsk { ids: string[]; label: string }
 
 export function useProject(id: string) {
   const { store, brand, aiEnabled, toast } = useApp();
@@ -20,6 +42,13 @@ export function useProject(id: string) {
   const [notice, setNotice] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latest = useRef<Project | null>(null);
+  const mem = useBrandMemory();
+  const memRef = useRef(mem);
+  memRef.current = mem;
+  const [askReason, setAskReason] = useState<ReasonAsk | null>(null);
+  // edits are captured per field after a short pause, so typing isn't logged keystroke by keystroke
+  const baseline = useRef<ContentPlan | null>(null);
+  const editTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -57,15 +86,43 @@ export function useProject(id: string) {
     });
   }, [persist]);
 
+  const decisionContext = (p: Project): DecisionEvent["context"] => ({ tone: p.tone, objective: p.objective, generatedBy: p.plan?.generatedBy });
+
+  /** Turn pending edits into recorded decisions (one per changed field). */
+  const flushEdits = useCallback(() => {
+    if (editTimer.current) clearTimeout(editTimer.current);
+    editTimer.current = null;
+    const b = baseline.current, cur = latest.current;
+    baseline.current = null;
+    if (!b || !cur?.plan) return;
+    const changes = diffPlans(b, cur.plan, cur.platforms);
+    if (changes.length) void memRef.current.record(changes.map((c): NewDecision => ({ ...c, agent: "writer", projectId: cur.id, reasons: [], context: decisionContext(cur) })));
+  }, []);
+
+  const recordDecision = useCallback((list: Omit<NewDecision, "agent" | "projectId" | "context" | "reasons">[]) => {
+    const cur = latest.current;
+    if (!cur) return Promise.resolve([] as DecisionEvent[]);
+    return memRef.current.record(list.map((d) => ({ ...d, agent: "writer", projectId: cur.id, reasons: [], context: decisionContext(cur) })));
+  }, []);
+
+  const answerReason = useCallback(async (reasons: ReasonCode[] | null) => {
+    const ask = askReason;
+    setAskReason(null);
+    if (ask && reasons?.length) await memRef.current.attachReasons(ask.ids, reasons);
+  }, [askReason]);
+
   // flush on unload
   useEffect(() => {
-    const flush = () => { if (timer.current && latest.current) { clearTimeout(timer.current); store.saveProject(latest.current); } };
+    const flush = () => { flushEdits(); if (timer.current && latest.current) { clearTimeout(timer.current); store.saveProject(latest.current); } };
     window.addEventListener("pagehide", flush);
     return () => { flush(); window.removeEventListener("pagehide", flush); };
-  }, [store]);
+  }, [store, flushEdits]);
 
   /** User edit of one section: apply it and lock that section against regeneration. */
   const editSection = useCallback((key: SectionKey, fn: (plan: ContentPlan) => ContentPlan) => {
+    if (!baseline.current && latest.current?.plan) baseline.current = deepClone(latest.current.plan);
+    if (editTimer.current) clearTimeout(editTimer.current);
+    editTimer.current = setTimeout(flushEdits, 2500);
     update((p) => {
       if (!p.plan) return p;
       p.plan = fn(p.plan);
@@ -74,7 +131,7 @@ export function useProject(id: string) {
       if (p.stage === "approved") p.stage = "ready";
       return p;
     });
-  }, [update, assets]);
+  }, [update, assets, flushEdits]);
 
   const snapshot = useCallback(async (label: string, p?: Project) => {
     const src = p ?? latest.current;
@@ -124,7 +181,8 @@ export function useProject(id: string) {
       }
       setBusy("Writing scripts and captions");
       if (p.plan) await snapshot("Before regenerating", p);
-      const g = await generate({ brand, project: { ...p, understanding }, assets, understanding }, deps, { current: p.plan, locked: p.locked });
+      flushEdits();
+      const g = await generate({ brand, project: { ...p, understanding }, assets, understanding, ...memoryInput() }, deps, { current: p.plan, locked: p.locked });
       if (g.notice) notices.push(g.notice);
       setNotice(notices.join(" ") || null);
       update((x) => {
@@ -135,6 +193,11 @@ export function useProject(id: string) {
         return x;
       }, true);
       await snapshot(g.usedAI ? "AI draft" : "Template draft", { ...p, plan: g.plan });
+      if (p.plan) {
+        const before = sectionMemory(p.plan, "hooks").text, after = sectionMemory(g.plan, "hooks").text;
+        const evs = await memRef.current.record([{ kind: "regenerate", field: "all", before, after, agent: "writer", projectId: p.id, reasons: [], context: decisionContext(p) }]);
+        if (evs.length) setAskReason({ ids: evs.map((e) => e.id), label: "regenerate everything" });
+      }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brand, assets, aiEnabled]);
@@ -143,8 +206,14 @@ export function useProject(id: string) {
   const runSection = useCallback(async (opts: GenOptions & { label: string }) => {
     await withJob("section", opts.label, async (p) => {
       if (!brand || !p.plan) return;
+      flushEdits();
       await snapshot(`Before: ${opts.label}`, p);
-      const g = await generate({ brand, project: p, assets, understanding: p.understanding }, deps, { ...opts, current: p.plan, locked: p.locked });
+      const g = await generate({ brand, project: p, assets, understanding: p.understanding, ...memoryInput() }, deps, { ...opts, current: p.plan, locked: p.locked });
+      const key = opts.section ?? "script";
+      const was = sectionMemory(p.plan, key), now = sectionMemory(g.plan, key);
+      const kind = opts.rewrite || opts.tone ? "rewrite" : "regenerate";
+      const evs = await memRef.current.record([{ kind, field: was.field, platform: was.platform, before: was.text, after: now.text, agent: "writer", projectId: p.id, reasons: [], context: { ...decisionContext(p), rewrite: opts.rewrite ?? (opts.tone ? `tone:${opts.tone}` : undefined) } }]);
+      if (kind === "regenerate" && evs.length) setAskReason({ ids: evs.map((e) => e.id), label: opts.label.toLowerCase() });
       if (g.notice) setNotice(g.notice);
       update((x) => {
         x.plan = g.plan;
@@ -157,6 +226,40 @@ export function useProject(id: string) {
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brand, assets, aiEnabled]);
+
+  function memoryInput() {
+    const m = memRef.current;
+    return { memory: m.rules, memoryPrompt: memoryForPrompt(m.rules, m.events) };
+  }
+
+  /** "Not this hook": remember the rejection and swap in a different hook right away. */
+  const rejectHook = useCallback(async (i: number) => {
+    flushEdits();
+    const p = latest.current;
+    if (!p?.plan || !brand) return;
+    const old = p.plan.hooks[i];
+    const evs = await memRef.current.record([{ kind: "reject", field: "hook", before: old.text, after: "", agent: "writer", projectId: p.id, reasons: [], context: { ...decisionContext(p), style: old.style } }]);
+    const rules = memRef.current.rulesWith(evs);
+    const avoid = hookAvoider(rules);
+    const taken = new Set(p.plan.hooks.map((h) => norm(h.text)));
+    let alt: { text: string; style: string } | undefined;
+    for (let seed = 1; seed <= 24 && !alt; seed++) {
+      const cand = generateTemplatePlan({ brand, project: p, assets, understanding: p.understanding, seed: seed * 7919, memory: rules });
+      alt = [cand.hooks[i], ...cand.hooks].find((h) => !avoid.isAvoided(h.text) && !taken.has(norm(h.text)));
+    }
+    update((x) => {
+      if (!x.plan) return x;
+      if (alt) {
+        if (x.plan.segments[0] && norm(x.plan.segments[0].spoken) === norm(old.text)) x.plan.segments[0].spoken = alt.text;
+        x.plan.hooks[i] = { text: alt.text, style: alt.style };
+      }
+      x.review = reviewPlan(x.plan, x, assets);
+      return x;
+    }, true);
+    if (!alt) toast("Noted. There's no fresh hook left to swap in — tap Rewrite hooks for a new set.");
+    if (evs.length) setAskReason({ ids: evs.map((e) => e.id), label: "this hook" });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brand, assets, update, flushEdits, toast]);
 
   const restore = useCallback(async (v: Version) => {
     await snapshot("Before restoring");
@@ -171,7 +274,7 @@ export function useProject(id: string) {
     update((p) => ({ ...p, mediaIds: ordered.map((a) => a.id) }), true);
   }, [store, update]);
 
-  return { project, assets, setAssets: setAssetsAndSave, versions, missing, save, busy, notice, setNotice, update, editSection, runFull, runSection, restore, snapshot };
+  return { project, assets, setAssets: setAssetsAndSave, versions, missing, save, busy, notice, setNotice, update, editSection, runFull, runSection, restore, snapshot, memory: mem, recordDecision, rejectHook, askReason, answerReason, flushEdits };
 }
 
 export type ProjectApi = ReturnType<typeof useProject>;

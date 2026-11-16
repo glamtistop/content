@@ -7,8 +7,9 @@
 import { estimateDuration, fitToDuration, spokenScript, DEFAULT_WPM } from "../duration";
 import { RULES } from "../platforms";
 import { postingWindows } from "../time";
+import { hookAvoider, preferredCta } from "../memory";
 import type {
-  BrandProfile, ContentPlan, HashtagRec, MediaAsset, MediaUnderstanding, Objective, Platform,
+  BrandProfile, PreferenceRule, ContentPlan, HashtagRec, MediaAsset, MediaUnderstanding, Objective, Platform,
   PlatformPackage, Project, ScriptSegment, SpeakingStyle, Tone,
 } from "../types";
 import { PLATFORMS } from "../types";
@@ -22,6 +23,10 @@ export interface GenInput {
   seed?: number;
   toneOverride?: Tone;
   now?: Date;
+  /** The brand's learned preferences (feature 5). */
+  memory?: PreferenceRule[];
+  /** Active rules + examples, as sent to AI agents in a Brand Memory block. */
+  memoryPrompt?: { rules: string[]; approvedExamples: string[]; rejectedDrafts: { text: string; reasons: string[] }[] };
 }
 
 // ---------- phrase banks ----------
@@ -130,7 +135,9 @@ export function phrasing(subject: string, city: string) {
     tagline: `${cap(core)}${city ? ` — in ${city}` : ""}`,
     short: `${cap(core)} ✨`,
     benefitHook: `${cap(core)} — stay for the end.`,
-    storyHook: `I've waited a long time for this: ${core}.`,
+    storyHook: `Come along for this one: ${core}.`,
+    benefitAlts: [`${cap(core)}, start to finish.`, `Watch this: ${core}.`],
+    storyAlts: ["Here's how it went.", "Let me show you how this went."],
     direct: `${cap(core)} — see how it went`,
     cover: cap(core),
     lookingFor: `Want something custom made for you? Here's what we're working with.`,
@@ -145,7 +152,9 @@ export function phrasing(subject: string, city: string) {
     tagline: `${cap(core)}${city ? `, made in ${city}` : ""}`,
     short: `${cap(core)} — made to order ✨`,
     benefitHook: known ? `If you need ${withArticle(customCore)}, watch this.` : "If you need something custom made, watch this.",
-    storyHook: "Someone asked me for this… here's how it turned out.",
+    storyHook: "Here's how this one came together.",
+    benefitAlts: [`${cap(customCore)}, made for you. Here's a closer look.`, `Want ${withArticle(customCore)}? Here's what that looks like.`],
+    storyAlts: ["From idea to finished piece, start to finish.", "Let me walk you through this one."],
     direct: `${cap(customCore)} — order yours`,
     cover: `${cap(core)}, made to order`,
     lookingFor: `Looking for ${withArticle(customCore)}? This is what we make.`,
@@ -414,16 +423,21 @@ export function generateTemplatePlan(inp: GenInput): ContentPlan {
   const ph = phrasing(subject, city(b));
   const core = ph.core;
   const style: SpeakingStyle = p.speakingStyle;
-  const cta = chooseCta(b, p.objective, rnd);
+  const cta = preferredCta(inp.memory ?? [], b.ctas) ?? chooseCta(b, p.objective, rnd);
 
+  // Hooks: skip anything the user rejected before (feature 5), falling back through alternates.
+  const avoid = hookAvoider(inp.memory ?? []);
+  const firstOk = (list: string[]) => list.find((t) => !avoid.isAvoided(t)) ?? list[0];
   const opener = OPENERS[tone] ?? OPENERS.confident;
   const shuffled = [...opener].sort(() => rnd() - 0.5);
+  const otherTones = (Object.keys(OPENERS) as Tone[]).filter((t) => t !== tone && t !== "custom").flatMap((t) => OPENERS[t]);
   const hooks = [
-    { text: shuffled[0], style: "Curiosity" },
-    { text: ph.benefitHook, style: "Direct benefit" },
-    { text: p.objective === "bulk_buyers" ? `Here's how we make ${core} for businesses — in bulk.` : ph.storyHook, style: "Story" },
+    { text: firstOk([...shuffled, ...otherTones]), style: "Curiosity" },
+    { text: firstOk([ph.benefitHook, ...ph.benefitAlts]), style: "Direct benefit" },
+    { text: firstOk(p.objective === "bulk_buyers" ? [`Here's how we make ${core} for businesses — in bulk.`, ph.storyHook, ...ph.storyAlts] : [ph.storyHook, ...ph.storyAlts]), style: "Story" },
   ];
-  const recIdx = p.objective === "custom_orders" || p.objective === "bulk_buyers" || p.objective === "leads" ? 1 : 0;
+  let recIdx = p.objective === "custom_orders" || p.objective === "bulk_buyers" || p.objective === "leads" ? 1 : 0;
+  if (avoid.avoidsStyle(hooks[recIdx].style)) recIdx = hooks.findIndex((h) => !avoid.avoidsStyle(h.style)) >= 0 ? hooks.findIndex((h) => !avoid.avoidsStyle(h.style)) : recIdx;
   const { sec: target, why } = targetFor(inp, style);
   let segments = buildSegments(inp, style, hooks[recIdx].text, cta, rnd);
   segments = fitToDuration(segments, target, p.speakingRateWpm || DEFAULT_WPM);
