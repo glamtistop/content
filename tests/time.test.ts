@@ -65,3 +65,16 @@ describe("posting windows", () => {
     expect(inWindow.explanation).toMatch(/guarantee/);
   });
 });
+
+import { uploadLimits } from "@/lib/config";
+describe("upload limits", () => {
+  it("caps account mode at the Supabase Free plan's 50 MB unless raised", () => {
+    expect(uploadLimits(true).videoBytes).toBe(50 * 1024 ** 2);
+    expect(uploadLimits(true).planCapped).toBe(true);
+    expect(uploadLimits(true, "500").videoBytes).toBe(500 * 1024 ** 2);
+    expect(uploadLimits(true, "500").planCapped).toBe(false);
+    expect(uploadLimits(false).videoBytes).toBe(500 * 1024 ** 2);
+    expect(uploadLimits(true).imageBytes).toBe(30 * 1024 ** 2);
+    expect(uploadLimits(true, "nonsense").maxMb).toBe(50);
+  });
+});
