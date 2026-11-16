@@ -150,6 +150,9 @@ export function ScriptEditor({ api }: { api: ProjectApi }) {
         <div>
           <h2 id="script-h" className="text-2xl font-bold">{plan.concept.title}</h2>
           <p className="text-sm text-mute">{plan.concept.angle}</p>
+          {plan.memoryApplied?.length ? (
+            <p className="text-xs text-teal mt-1" data-testid="memory-applied">Applied what you've taught me: {plan.memoryApplied.join("; ")}</p>
+          ) : null}
         </div>
         <span className={cx("text-xs rounded-full border px-2.5 py-1", plan.generatedBy === "ai" ? "border-teal/50 text-teal" : "border-warn/50 text-warn")}>
           {plan.generatedBy === "ai" ? `Written by AI (${plan.provider})` : "Template writer — no AI"}
@@ -178,6 +181,9 @@ export function ScriptEditor({ api }: { api: ProjectApi }) {
                 <input className="field !py-1.5 mt-0.5" value={h.text} data-testid={`hook-${i}`} aria-label={`Hook ${i + 1}`}
                   onChange={(e) => editSection("hooks", (pl) => ({ ...pl, hooks: pl.hooks.map((x, k) => (k === i ? { ...x, text: e.target.value } : x)) }))} />
               </div>
+              <button className="btn-quiet !min-h-[36px] !px-2 mt-4 shrink-0" disabled={!!busy} data-testid={`reject-hook-${i}`}
+                aria-label={`Not this hook: ${h.text}`} title="Not this one — swap it and don't suggest it again"
+                onClick={() => api.rejectHook(i)}><Icon name="x" size={16} /></button>
             </div>
           ))}
         </div>
@@ -256,6 +262,7 @@ export function ScriptEditor({ api }: { api: ProjectApi }) {
                 const text = spokenScript(plan.segments);
                 await saveBrand({ ...brand, approvedExamples: [...brand.approvedExamples.filter((x) => x !== text), text].slice(-12) });
                 update((x) => ({ ...x, locked: { ...x.locked, script: "approved" } }), true);
+                await api.recordDecision([{ kind: "prefer", field: "spoken", before: "", after: text }]);
                 await api.snapshot("Preferred version");
                 toast("Saved as a preferred version. Future scripts will learn from it.");
               }}><Icon name="check" size={16} />Save preferred version</button>

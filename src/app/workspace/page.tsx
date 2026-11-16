@@ -6,6 +6,7 @@ import { useApp } from "@/components/AppProvider";
 import { Icon } from "@/components/icons";
 import { Empty, Notice, PageHeader, cx } from "@/components/ui";
 import { MediaPreview, ScriptEditor, Understanding } from "@/components/workspace/CenterPanel";
+import { ReasonBar } from "@/components/workspace/ReasonBar";
 import { ExportCenter, Packages, Readiness, Versions } from "@/components/workspace/RightPanel";
 import { SetupPanel } from "@/components/workspace/SetupPanel";
 import { useProject } from "@/components/workspace/useProject";
@@ -122,6 +123,7 @@ function Workspace({ id }: { id: string }) {
         </div>
       )}
       {notice && <div className="mb-4"><Notice kind="warn" onClose={() => setNotice(null)}>{notice}</Notice></div>}
+      <ReasonBar api={api} />
       {failedJob && !busy && <div className="mb-4"><Notice kind="error" onClose={() => update((x) => ({ ...x, jobs: [] }), true)}>{failedJob.message}</Notice></div>}
 
       {wide ? (

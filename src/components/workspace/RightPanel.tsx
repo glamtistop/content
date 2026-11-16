@@ -206,7 +206,7 @@ export function Packages({ api }: { api: ProjectApi }) {
         </div>
 
         <button className={cx("btn w-full", approvedAll ? "border border-gold/60 text-gold" : "btn-ghost")} data-testid={`approve-${active}`}
-          onClick={() => update((x) => {
+          onClick={() => { if (!approvedAll) void api.recordDecision([{ kind: "approve", field: "caption", platform: active, before: "", after: pkg.caption }]); update((x) => {
             for (const f of ["caption", "hashtags", "cta", "coverHeadline"] as const) {
               const key = `pkg.${active}.${f}` as SectionKey;
               if (approvedAll) delete x.locked[key]; else x.locked[key] = "approved";
@@ -214,7 +214,7 @@ export function Packages({ api }: { api: ProjectApi }) {
             const all = x.platforms.every((pl) => x.locked[`pkg.${pl}.caption`] === "approved");
             x.stage = all ? "approved" : "ready";
             return x;
-          }, true)}>
+          }, true); }}>
           <Icon name="check" size={16} />{approvedAll ? `${PLATFORM_LABEL[active]} approved — tap to unapprove` : `Approve ${PLATFORM_LABEL[active]} copy`}
         </button>
       </div>

@@ -39,6 +39,11 @@ Tested on 2026-11-14: 26 unit tests (Vitest) and 29 end-to-end checks in real Ch
 | 27 | Account and media deletion | ✅ Device / 🔑 Cloud | E2E: delete-all empties projects, media and files. Cloud deletion runs through the server function |
 | 28 | API failures don't destroy work | ✅ Working | AI failure falls back to the template writer; a version is saved before every regeneration; interrupted jobs are marked for retry |
 
+## Added after Phase 1
+| Feature | Status | How verified |
+|---|---|---|
+| Evolving memory (learns from your edits, cuts, rewrites, rejections) | ✅ Working | Unit tests for capture, learning, fading, user overrides and applying; E2E: a rejected hook is swapped and never returns, reasons are recorded, the panel shows and switches off rules, and reset works |
+
 ## Required external credentials
 - **Supabase project URL and anon key:** for login, sync and cloud storage. Free tier.
 - **Gemini API key** (recommended) **or Claude API key:** for AI analysis and writing. Pay per use; set a spending cap with the provider.

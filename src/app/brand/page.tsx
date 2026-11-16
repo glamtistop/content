@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useApp } from "@/components/AppProvider";
 import { Icon } from "@/components/icons";
+import { MemoryPanel } from "@/components/MemoryPanel";
 import { Field, PageHeader, Toggle } from "@/components/ui";
 import { blankBrand } from "@/lib/defaultBrand";
 import { COMMON_TZS } from "@/lib/time";
@@ -140,7 +141,7 @@ export default function BrandPage() {
           </Field>
         </Group>
 
-        <Group title="Learned voice">
+        <Group title="Preferred versions">
           <p className="text-sm text-mute">Scripts you save as “preferred” teach the writer your voice. Generated scripts are never used unless you save them.</p>
           {b.approvedExamples.length === 0 ? <p className="text-sm text-mute">None yet.</p> : (
             <ul className="flex flex-col gap-2">{b.approvedExamples.map((x, i) => (
@@ -160,6 +161,7 @@ export default function BrandPage() {
           )}
         </div>
       </form>
+      <MemoryPanel />
     </div>
   );
 }

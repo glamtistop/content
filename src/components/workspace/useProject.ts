@@ -4,6 +4,7 @@ import { analyze, generate, type GenOptions } from "@/lib/generate";
 import { reviewPlan } from "@/lib/generate/review";
 import { generateTemplatePlan } from "@/lib/generate/template";
 import { previewFor } from "@/lib/ingest";
+import { sectionLabel } from "@/lib/generate/sections";
 import { diffPlans, hookAvoider, memoryForPrompt, norm } from "@/lib/memory";
 import type { ContentPlan, DecisionEvent, MediaAsset, MemoryField, Platform, Project, ReasonCode, SectionKey, Version } from "@/lib/types";
 import { deepClone, nowISO, uid } from "@/lib/util";
@@ -29,7 +30,13 @@ function sectionMemory(plan: ContentPlan, key: SectionKey): { field: MemoryField
   return { field, platform: pl, text };
 }
 
-export interface ReasonAsk { ids: string[]; label: string }
+/** "Hooks" → "hooks", "Instagram caption" stays capitalized. */
+function sectionNoun(key: SectionKey) {
+  const l = sectionLabel(key);
+  return /^(TikTok|Instagram|Facebook)/.test(l) ? l : l.toLowerCase();
+}
+
+export interface ReasonAsk { ids: string[]; question: string }
 
 export function useProject(id: string) {
   const { store, brand, aiEnabled, toast } = useApp();
@@ -196,7 +203,7 @@ export function useProject(id: string) {
       if (p.plan) {
         const before = sectionMemory(p.plan, "hooks").text, after = sectionMemory(g.plan, "hooks").text;
         const evs = await memRef.current.record([{ kind: "regenerate", field: "all", before, after, agent: "writer", projectId: p.id, reasons: [], context: decisionContext(p) }]);
-        if (evs.length) setAskReason({ ids: evs.map((e) => e.id), label: "regenerate everything" });
+        if (evs.length) setAskReason({ ids: evs.map((e) => e.id), question: "Why regenerate everything?" });
       }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -213,7 +220,7 @@ export function useProject(id: string) {
       const was = sectionMemory(p.plan, key), now = sectionMemory(g.plan, key);
       const kind = opts.rewrite || opts.tone ? "rewrite" : "regenerate";
       const evs = await memRef.current.record([{ kind, field: was.field, platform: was.platform, before: was.text, after: now.text, agent: "writer", projectId: p.id, reasons: [], context: { ...decisionContext(p), rewrite: opts.rewrite ?? (opts.tone ? `tone:${opts.tone}` : undefined) } }]);
-      if (kind === "regenerate" && evs.length) setAskReason({ ids: evs.map((e) => e.id), label: opts.label.toLowerCase() });
+      if (kind === "regenerate" && evs.length) setAskReason({ ids: evs.map((e) => e.id), question: `Why replace the ${sectionNoun(key)}?` });
       if (g.notice) setNotice(g.notice);
       update((x) => {
         x.plan = g.plan;
@@ -257,15 +264,16 @@ export function useProject(id: string) {
       return x;
     }, true);
     if (!alt) toast("Noted. There's no fresh hook left to swap in — tap Rewrite hooks for a new set.");
-    if (evs.length) setAskReason({ ids: evs.map((e) => e.id), label: "this hook" });
+    if (evs.length) setAskReason({ ids: evs.map((e) => e.id), question: "Why not this hook?" });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brand, assets, update, flushEdits, toast]);
 
   const restore = useCallback(async (v: Version) => {
+    flushEdits();
     await snapshot("Before restoring");
     update((p) => { p.plan = deepClone(v.plan); p.locked = { ...v.locked }; p.review = reviewPlan(p.plan, p, assets); p.stage = "ready"; return p; }, true);
     toast(`Restored “${v.label}”.`);
-  }, [snapshot, update, assets, toast]);
+  }, [snapshot, update, assets, toast, flushEdits]);
 
   const setAssetsAndSave = useCallback(async (list: MediaAsset[]) => {
     const ordered = list.map((a, i) => ({ ...a, order: i }));

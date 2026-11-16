@@ -20,6 +20,14 @@ About 20 minutes. You'll need: this GitHub repo, a Supabase account (free), and 
    - You should see **Success. No rows returned.**
 6. Check: open **Table Editor**. You should see `brands`, `projects`, `media_assets` and other tables. Under **Storage** there's a bucket called `media`.
 
+## Part 2b: Memory tables (for learning your style)
+Already set up and adding this later? Do just this part. It's safe to run more than once.
+1. On a Mac, open https://raw.githubusercontent.com/glamtistop/content/main/supabase/migrations/002_memory.sql, then press ⌘A and ⌘C.
+2. In Supabase, go to **SQL Editor** → **New query**. Paste, then click **Run** (if asked, choose **Run and enable RLS**).
+3. You should see **Success. No rows returned**, and **Table Editor** should list `decision_events` and `preference_rules`.
+
+Without these tables, the app still works, but it shows "Learning isn't being saved" and forgets what it learned when you close it.
+
 ## Part 3: Login settings
 7. Go to **Authentication** → **URL Configuration**:
    - **Site URL:** `https://glamtistop.github.io/content/`
