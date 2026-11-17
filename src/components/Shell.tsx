@@ -64,7 +64,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
       {/* mobile top bar */}
       <div className="lg:hidden sticky top-0 z-30 bg-ink/95 backdrop-blur border-b border-line" style={{ paddingTop: "var(--safe-top)" }}>
-        <div className="flex items-center gap-3 px-4 h-14">
+        <div className="flex items-center gap-3 h-14 safe-x">
           <Link href="/" className="flex items-center gap-2" aria-label="ContentPilot home"><Mark /></Link>
           <div className="flex-1 min-w-0">{brandSwitcher}</div>
         </div>
@@ -76,21 +76,21 @@ export function Shell({ children }: { children: ReactNode }) {
 
       {/* mobile bottom bar */}
       <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-ink/95 backdrop-blur border-t border-line" style={{ paddingBottom: "var(--safe-bottom)" }} aria-label="Main">
-        <div className="grid grid-cols-5">
+        <div className="grid grid-cols-5" style={{ paddingLeft: "var(--safe-left)", paddingRight: "var(--safe-right)" }}>
           {NAV.filter((n) => n.mobile).map((n) => (
-            <Link key={n.href} href={n.href} className={cx("flex flex-col items-center justify-center gap-0.5 h-16 text-[11px]", isActive(path, n.href) ? "text-teal" : "text-mute")} aria-current={isActive(path, n.href) ? "page" : undefined}>
+            <Link key={n.href} href={n.href} className={cx("nav-item flex flex-col items-center justify-center gap-0.5 h-16 text-[11px]", isActive(path, n.href) ? "text-teal" : "text-mute")} aria-current={isActive(path, n.href) ? "page" : undefined}>
               <Icon name={n.icon} size={22} />
               {n.label.split(" ")[0]}
             </Link>
           ))}
-          <button className={cx("flex flex-col items-center justify-center gap-0.5 h-16 text-[11px]", more ? "text-teal" : "text-mute")} onClick={() => setMore(true)} aria-haspopup="dialog">
+          <button className={cx("nav-item flex flex-col items-center justify-center gap-0.5 h-16 text-[11px]", more ? "text-teal" : "text-mute")} onClick={() => setMore(true)} aria-haspopup="dialog">
             <Icon name="more" size={22} />More
           </button>
         </div>
       </nav>
       {more && (
         <div className="lg:hidden fixed inset-0 z-50 bg-black/70" onClick={() => setMore(false)}>
-          <div className="absolute bottom-0 inset-x-0 panel rounded-b-none p-4" style={{ paddingBottom: "calc(1rem + var(--safe-bottom))" }} onClick={(e) => e.stopPropagation()} role="dialog" aria-label="More screens">
+          <div className="absolute bottom-0 inset-x-0 panel rounded-b-none p-4 max-h-[90dvh] overflow-y-auto" style={{ paddingBottom: "calc(1rem + var(--safe-bottom))", paddingLeft: "max(1rem, var(--safe-left))", paddingRight: "max(1rem, var(--safe-right))" }} onClick={(e) => e.stopPropagation()} role="dialog" aria-label="More screens">
             <div className="grid grid-cols-2 gap-2">
               {NAV.filter((n) => !n.mobile).map((n) => (
                 <Link key={n.href} href={n.href} onClick={() => setMore(false)} className="flex items-center gap-2.5 rounded-lg bg-ink border border-line px-3 py-3 text-sm">

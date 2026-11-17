@@ -11,6 +11,8 @@
 }
 
 html, body { background: #000; color: #F4F6F6; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { overscroll-behavior-y: none; }
 body { font-feature-settings: "ss01", "cv11"; -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
 
 @layer base {
@@ -18,6 +20,7 @@ body { font-feature-settings: "ss01", "cv11"; -webkit-font-smoothing: antialiase
   h1 { font-variation-settings: "wdth" 88, "opsz" 72; }
   :focus-visible { outline: 2px solid #19D3C5; outline-offset: 2px; border-radius: 6px; }
   input, textarea, select { font-size: 16px; } /* prevents iOS zoom on focus */
+  fieldset { min-width: 0; }
   ::selection { background: #19D3C5; color: #062B28; }
 }
 
@@ -55,3 +58,22 @@ body { font-feature-settings: "ss01", "cv11"; -webkit-font-smoothing: antialiase
 
 .scrollbar-thin::-webkit-scrollbar { height: 6px; width: 6px; }
 .scrollbar-thin::-webkit-scrollbar-thumb { background: #33383C; border-radius: 3px; }
+
+/* ---------- Touch devices (iPhone, iPhone Duo) ---------- */
+@media (pointer: coarse) {
+  /* Safari zooms the page when a focused field's text is under 16px. Keep every field at 16px. */
+  input:not(#_), textarea:not(#_), select:not(#_) { font-size: 16px !important; }
+  /* Apple's minimum comfortable tap target is 44pt. */
+  button:not(#_), [role="tab"]:not(#_), summary:not(#_), a.btn-primary:not(#_), a.btn-ghost:not(#_) { min-height: 44px !important; min-width: 44px !important; }
+  input[type="checkbox"]:not(#_), input[type="radio"]:not(#_) { min-width: 22px; min-height: 22px; }
+  button, a, [role="tab"], summary, label { touch-action: manipulation; }
+}
+
+/* Landscape phones: keep bars and content clear of the notch / Dynamic Island on either side. */
+.safe-x { padding-left: max(1rem, var(--safe-left)); padding-right: max(1rem, var(--safe-right)); }
+
+/* Short screens (iPhone landscape, iPhone Duo open in landscape): slimmer bottom bar, more room for content. */
+@media (max-height: 480px) and (max-width: 1023px) {
+  .nav-item { height: 48px !important; flex-direction: row !important; gap: 6px !important; }
+  .safe-pb { padding-bottom: calc(60px + var(--safe-bottom)); }
+}
