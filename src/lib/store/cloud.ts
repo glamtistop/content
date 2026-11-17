@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { BrandProfile, MediaAsset, Project, UsageRecord, Version } from "../types";
+import type { BrandProfile, DecisionEvent, MediaAsset, PreferenceRule, Project, UsageRecord, Version } from "../types";
 import type { Store } from "./types";
 
 const BUCKET = "media";
@@ -91,6 +91,26 @@ export function cloudStore(sb: SupabaseClient, url: string, anonKey: string): St
     addVersion: (v) => upsert("versions", { id: v.id, project_id: v.projectId, data: v, created_at: v.createdAt }),
     logUsage: (r) => upsert("api_usage", { id: r.id, data: r, created_at: r.at }),
     listUsage: async () => (await rows<UsageRecord>("api_usage")).sort((a, b) => b.at.localeCompare(a.at)),
+    saveDecision: (e) => upsert("decision_events", { id: e.id, brand_id: e.brandId, data: e, created_at: e.at }),
+    listDecisions: async (brandId) =>
+      (await rows<DecisionEvent>("decision_events", ["brand_id", brandId])).sort((a, b) => a.at.localeCompare(b.at)),
+    listRules: (brandId) => rows<PreferenceRule>("preference_rules", ["brand_id", brandId]),
+    saveRules: async (rules) => {
+      if (!rules.length) return;
+      const user_id = await userId();
+      const { error } = await sb.from("preference_rules").upsert(
+        rules.map((r) => ({ id: r.id, user_id, brand_id: r.brandId, rule_key: r.key, data: r, updated_at: r.updatedAt })));
+      if (error) throw new Error(`Couldn't save learned preferences: ${error.message}`);
+    },
+    deleteRules: async (ids) => {
+      if (!ids.length) return;
+      const { error } = await sb.from("preference_rules").delete().in("id", ids);
+      if (error) throw new Error(`Couldn't remove learned preferences: ${error.message}`);
+    },
+    clearMemory: async (brandId) => {
+      await del("decision_events", "brand_id", brandId);
+      await del("preference_rules", "brand_id", brandId);
+    },
     deleteEverything: async () => {
       const { error } = await sb.functions.invoke("ai", { body: { action: "delete_account" } });
       if (error) throw new Error("Account deletion failed: " + error.message);

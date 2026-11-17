@@ -243,6 +243,8 @@ export interface ContentPlan {
     headlines: { curiosity: string; premium: string; direct: string };
   };
   ideas?: string[];
+  /** Plain-language list of learned preferences applied to this draft. */
+  memoryApplied?: string[];
 }
 
 /** Section keys that can be regenerated / locked independently. */
@@ -293,4 +295,67 @@ export interface UsageRecord {
   provider: string;
   ok: boolean;
   note: string;
+}
+
+// ---------- Evolving memory (feature 5) ----------
+
+export type DecisionKind = "edit" | "cut" | "rewrite" | "regenerate" | "reject" | "approve" | "prefer" | "pick";
+export type ReasonCode = "too_salesy" | "not_my_voice" | "wrong_facts" | "too_long" | "too_generic" | "cringe" | "other";
+export const REASONS: { id: ReasonCode; label: string }[] = [
+  { id: "too_salesy", label: "Too salesy" },
+  { id: "not_my_voice", label: "Not my voice" },
+  { id: "wrong_facts", label: "Wrong facts" },
+  { id: "too_long", label: "Too long" },
+  { id: "too_generic", label: "Too generic" },
+  { id: "cringe", label: "Cringe" },
+];
+
+/** Which kind of text a decision touched. */
+export type MemoryField =
+  | "hook" | "spoken" | "onScreen" | "caption" | "shortCaption" | "hashtags" | "cta"
+  | "coverHeadline" | "shortScript" | "photoCaption" | "headline" | "altText" | "all";
+
+/** One user decision about generated content. Stored exactly; nothing here is inferred. */
+export interface DecisionEvent {
+  id: string;
+  brandId: string;
+  projectId?: string;
+  at: string;
+  agent: "writer" | "video" | "music" | "clip" | "strategist";
+  kind: DecisionKind;
+  field: MemoryField;
+  platform?: Platform;
+  before: string;
+  after: string;
+  /** Only reasons the user picked or typed. */
+  reasons: ReasonCode[];
+  reasonText?: string;
+  context: { tone?: Tone; objective?: Objective; generatedBy?: "ai" | "template"; rewrite?: string; style?: string };
+}
+
+export type RuleKind =
+  | "emoji" | "punctuation" | "length" | "avoid_phrase" | "prefer_phrase"
+  | "avoid_tag" | "prefer_tag" | "cta" | "hook_style" | "rejected_hook" | "tone";
+
+/** A pattern learned from decisions (or set by the user). The user can switch any rule off. */
+export interface PreferenceRule {
+  id: string;
+  brandId: string;
+  /** Stable identity: kind + scope + params, so re-learning updates the same rule. */
+  key: string;
+  kind: RuleKind;
+  scope: { agent: "writer"; field: MemoryField | "*"; platform: Platform | "*" };
+  text: string;
+  params: Record<string, string | number | boolean>;
+  /** Recency-weighted counts (half-life 90 days). */
+  evidence: number;
+  counter: number;
+  /** Distinct decisions supporting it. */
+  events: number;
+  status: "suggested" | "active" | "disabled";
+  /** The user changed its status or wording; learning never overrides that. */
+  userSet: boolean;
+  lastSeen: string;
+  createdAt: string;
+  updatedAt: string;
 }

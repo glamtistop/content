@@ -75,6 +75,7 @@ Make TikTok, Instagram and Facebook genuinely different in language, pacing, dis
 Respect each platform's hashtag maximum and caption limit. Hashtags must be specific and relevant — never unrelated trending tags.
 For audio, describe a suitable STYLE only (e.g. "upbeat West Coast instrumental, low under voice"). Do not claim any track is trending or licensed.
 If brand.approvedExamples exist, match that voice.
+If a brand_memory block is provided, it was learned from this user's own edits and rejections: follow its rules, never reuse a rejected draft or its opening line, and match approved examples. Memory never permits inventing facts.
 For a single-picture "photo" post, keep it a still image: do not write a video script beyond hooks.
 For scenes based on uploaded video, set assetIndex and t ONLY to a frame timestamp listed in media[].frameTimes; otherwise omit them.
 ${SAFETY}
@@ -212,6 +213,7 @@ Deno.serve(async (req) => {
         { text: userData("media_understanding", body.understanding) },
         { text: userData("platform_rules", body.rules) },
       ];
+      if (body.memory) parts.push({ text: userData("brand_memory", body.memory) });
       if (body.current) parts.push({ text: userData("current_draft", body.current) });
       if (body.section) parts.push({ text: `Focus on improving this section: ${String(body.section).slice(0, 60)}. Return the full JSON object.` });
       if (body.instruction) parts.push({ text: `Rewrite instruction: ${String(body.instruction).slice(0, 400)}` });

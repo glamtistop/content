@@ -110,6 +110,7 @@ function compactInput(input: GenInput) {
       frameTimes: a.tech?.frames?.map((f) => ({ t: f.t, sharpness: f.sharpness, brightness: f.brightness })), notes: a.tech?.notes,
     })),
     understanding: understanding ? { source: understanding.source, observed: understanding.observed, suggested: understanding.suggested } : null,
+    memory: input.memoryPrompt ?? null,
     rules: Object.fromEntries(PLATFORMS.map((p) => [p, { captionMax: RULES[p].captionMax, hashtagMax: RULES[p].hashtagMax, style: RULES[p].styleNotes, shortFormMaxSec: RULES[p].video.shortFormMaxSec }])),
   };
 }

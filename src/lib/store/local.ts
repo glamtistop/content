@@ -1,5 +1,5 @@
 import Dexie, { type Table } from "dexie";
-import type { BrandProfile, MediaAsset, Project, UsageRecord, Version } from "../types";
+import type { BrandProfile, DecisionEvent, MediaAsset, PreferenceRule, Project, UsageRecord, Version } from "../types";
 import type { Store } from "./types";
 
 class DB extends Dexie {
@@ -9,6 +9,8 @@ class DB extends Dexie {
   blobs!: Table<{ id: string; blob: Blob }, string>;
   versions!: Table<Version, string>;
   usage!: Table<UsageRecord, string>;
+  decisions!: Table<DecisionEvent, string>;
+  rules!: Table<PreferenceRule, string>;
   constructor(name = "contentpilot") {
     super(name);
     this.version(1).stores({
@@ -18,6 +20,10 @@ class DB extends Dexie {
       blobs: "id",
       versions: "id, projectId, createdAt",
       usage: "id, at",
+    });
+    this.version(2).stores({
+      decisions: "id, brandId, at",
+      rules: "id, brandId, key",
     });
   }
 }
@@ -33,6 +39,8 @@ export function localStore(name?: string): Store {
       const projects = await db.projects.where("brandId").equals(id).toArray();
       for (const p of projects) await deleteProjectDeep(p.id);
       await db.media.where("brandId").equals(id).delete();
+      await db.decisions.where("brandId").equals(id).delete();
+      await db.rules.where("brandId").equals(id).delete();
       await db.brands.delete(id);
     },
     listProjects: async (brandId) =>
@@ -63,8 +71,18 @@ export function localStore(name?: string): Store {
     addVersion: async (v) => void (await db.versions.put(v)),
     logUsage: async (r) => void (await db.usage.put(r)),
     listUsage: async () => (await db.usage.toArray()).sort((a, b) => b.at.localeCompare(a.at)),
+    saveDecision: async (e) => void (await db.decisions.put(e)),
+    listDecisions: async (brandId) =>
+      (await db.decisions.where("brandId").equals(brandId).toArray()).sort((a, b) => a.at.localeCompare(b.at)),
+    listRules: (brandId) => db.rules.where("brandId").equals(brandId).toArray(),
+    saveRules: async (rules) => void (await db.rules.bulkPut(rules)),
+    deleteRules: async (ids) => void (await db.rules.bulkDelete(ids)),
+    clearMemory: async (brandId) => {
+      await db.decisions.where("brandId").equals(brandId).delete();
+      await db.rules.where("brandId").equals(brandId).delete();
+    },
     deleteEverything: async () => {
-      await Promise.all([db.brands.clear(), db.projects.clear(), db.media.clear(), db.blobs.clear(), db.versions.clear(), db.usage.clear()]);
+      await Promise.all([db.brands.clear(), db.projects.clear(), db.media.clear(), db.blobs.clear(), db.versions.clear(), db.usage.clear(), db.decisions.clear(), db.rules.clear()]);
     },
   };
 

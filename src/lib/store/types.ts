@@ -1,4 +1,4 @@
-import type { BrandProfile, MediaAsset, Project, UsageRecord, Version } from "../types";
+import type { BrandProfile, DecisionEvent, MediaAsset, PreferenceRule, Project, UsageRecord, Version } from "../types";
 
 export interface Store {
   mode: "local" | "cloud";
@@ -24,6 +24,16 @@ export interface Store {
 
   logUsage(r: UsageRecord): Promise<void>;
   listUsage(): Promise<UsageRecord[]>;
+
+  // ---- evolving memory ----
+  /** Insert or update (e.g. to attach a reason the user picked afterwards). */
+  saveDecision(e: DecisionEvent): Promise<void>;
+  listDecisions(brandId: string): Promise<DecisionEvent[]>;
+  listRules(brandId: string): Promise<PreferenceRule[]>;
+  saveRules(rules: PreferenceRule[]): Promise<void>;
+  deleteRules(ids: string[]): Promise<void>;
+  /** Forget everything learned for one brand: decisions and rules. */
+  clearMemory(brandId: string): Promise<void>;
 
   /** Deletes every brand, project, media file, version and usage record for this account. */
   deleteEverything(): Promise<void>;

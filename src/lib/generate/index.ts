@@ -2,6 +2,7 @@
 import { estimateDuration, fitToDuration, DEFAULT_WPM, wordCount } from "../duration";
 import type { ContentPlan, MediaAsset, MediaUnderstanding, SectionKey, Tone, UsageRecord } from "../types";
 import { deepClone, nowISO, uid } from "../util";
+import { applyMemory } from "../memory";
 import { AIUnavailable, analyzeWithAI, generateWithAI } from "./ai";
 import { mergeRespectingLocks, replaceOneSection } from "./sections";
 import { generateTemplatePlan, type GenInput } from "./template";
@@ -120,6 +121,14 @@ export async function generate(input: GenInput, deps: Deps, opts: GenOptions = {
       if (mid && !/quote|order/i.test(mid.spoken)) mid.spoken = `${mid.spoken} If you need one for a gift, an event, or your business, I can make it.`.trim();
       fresh = { ...fresh, segments: cur.segments };
     }
+  }
+
+  // Feature 5: apply the user's learned preferences to every fresh draft (template or AI).
+  if (input.memory?.length) {
+    const m = applyMemory(fresh, input.memory, input.project.platforms, {
+      fallbackHooks: base.hooks, wpm, photoOnly: input.project.singlePictureMode === "photo",
+    });
+    fresh = m.plan;
   }
 
   // Auto-revise: a script that doesn't fit its target gets shortened.
