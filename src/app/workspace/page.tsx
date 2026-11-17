@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useApp } from "@/components/AppProvider";
 import { Icon } from "@/components/icons";
 import { Empty, Notice, PageHeader, cx } from "@/components/ui";
@@ -55,17 +55,26 @@ function ProjectList() {
 
 type Tab = "setup" | "script" | "post" | "review";
 
-/** Three columns only when there's genuinely room; otherwise tabs (phones, tablets, foldables). */
-function useWide() {
-  const [wide, setWide] = useState(false);
+type Layout = "one" | "two" | "three";
+
+/**
+ * Layout follows the room the workspace actually has (not the screen), so it adapts to a
+ * MacBook window with the sidebar, an iPhone in either orientation, and a foldable open or closed.
+ *   three columns ≥ 1240px · two columns ≥ 820px · tabs below that
+ */
+function useLayout() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [layout, setLayout] = useState<Layout>("one");
   useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1280px)");
-    const on = () => setWide(mq.matches);
-    on();
-    mq.addEventListener("change", on);
-    return () => mq.removeEventListener("change", on);
-  }, []);
-  return wide;
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => { const w = el.clientWidth; setLayout(w >= 1240 ? "three" : w >= 820 ? "two" : "one"); };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  });
+  return { ref, layout };
 }
 
 function Workspace({ id }: { id: string }) {
@@ -74,12 +83,12 @@ function Workspace({ id }: { id: string }) {
   const { store, toast } = useApp();
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("setup");
-  const wide = useWide();
+  const { ref: rootRef, layout } = useLayout();
   useEffect(() => { if (p?.plan && tab === "setup") setTab("script"); /* jump once content exists */ // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!p?.plan]);
 
   if (missing) return <Empty icon="layers" title="Project not found" action={<Link className="btn-primary" href="/workspace/">All projects</Link>}>It may have been deleted, or it belongs to another account or brand.</Empty>;
-  if (!p) return <p className="text-mute py-10 text-center">Opening project…</p>;
+  if (!p) return <div ref={rootRef} className="max-w-[1500px] mx-auto"><p className="text-mute py-10 text-center">Opening project…</p></div>;
 
   const failedJob = p.jobs?.slice().reverse().find((j) => j.status === "failed");
   const center = (
@@ -103,7 +112,7 @@ function Workspace({ id }: { id: string }) {
   );
 
   return (
-    <div className="max-w-[1500px] mx-auto">
+    <div ref={rootRef} className="max-w-[1500px] mx-auto" data-layout={layout}>
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <input className="bg-transparent font-display text-2xl sm:text-3xl font-bold min-w-0 flex-1 focus:outline-none border-b border-transparent focus:border-teal" value={p.name} aria-label="Project name"
           onChange={(e) => update((x) => ({ ...x, name: e.target.value }))} data-testid="project-name" />
@@ -126,14 +135,27 @@ function Workspace({ id }: { id: string }) {
       <ReasonBar api={api} />
       {failedJob && !busy && <div className="mb-4"><Notice kind="error" onClose={() => update((x) => ({ ...x, jobs: [] }), true)}>{failedJob.message}</Notice></div>}
 
-      {wide ? (
+      {layout === "three" ? (
         <div className="grid grid-cols-[300px_minmax(0,1fr)_400px] gap-6 items-start">
           <aside className="sticky top-6 max-h-[calc(100dvh-3rem)] overflow-y-auto scrollbar-thin pr-1"><SetupPanel api={api} /></aside>
           {center}
           <aside>{right}</aside>
         </div>
+      ) : layout === "two" ? (
+        <div className="grid grid-cols-[minmax(0,1fr)_minmax(340px,400px)] gap-5 items-start">
+          <div className="min-w-0">
+            <div className="grid grid-cols-2 gap-1 rounded-lg bg-ink border border-line p-1 mb-4" role="tablist" aria-label="Setup or script">
+              {(["setup", "script"] as Tab[]).map((t) => (
+                <button key={t} role="tab" aria-selected={(tab === "setup") === (t === "setup")} onClick={() => setTab(t)} data-testid={`wtab-${t}`}
+                  className={cx("rounded-md min-h-[40px] text-sm font-medium capitalize", (tab === "setup") === (t === "setup") ? "bg-graphite text-paper" : "text-mute")}>{t}</button>
+              ))}
+            </div>
+            {tab === "setup" ? <SetupPanel api={api} /> : center}
+          </div>
+          <aside className="min-w-0">{right}</aside>
+        </div>
       ) : (<>
-      <div className="sticky z-20 -mx-4 px-4 py-2 bg-black/95 backdrop-blur mb-4" style={{ top: "calc(56px + var(--safe-top))" }}>
+      <div className="sticky z-20 -mx-4 px-4 py-2 bg-black/95 backdrop-blur mb-4 top-[calc(56px+var(--safe-top))] lg:top-0">
         <div className="grid grid-cols-4 gap-1 rounded-lg bg-ink border border-line p-1" role="tablist" aria-label="Workspace sections">
           {(["setup", "script", "post", "review"] as Tab[]).map((t) => (
             <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} data-testid={`wtab-${t}`}

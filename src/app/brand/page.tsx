@@ -39,9 +39,9 @@ export default function BrandPage() {
             <p className="text-xs text-mute mb-2">Only capabilities marked tested or available are presented as things you can make.</p>
             <ul className="flex flex-col gap-2">
               {b.capabilities.map((c, i) => (
-                <li key={i} className="flex gap-2">
-                  <input className="field text-sm" value={c.name} aria-label="Capability" onChange={(e) => set({ capabilities: b.capabilities.map((x, k) => (k === i ? { ...x, name: e.target.value } : x)) })} />
-                  <select className="field !w-40 text-sm" value={c.status} aria-label="Status" onChange={(e) => set({ capabilities: b.capabilities.map((x, k) => (k === i ? { ...x, status: e.target.value as CapabilityStatus } : x)) })}>
+                <li key={i} className="flex flex-wrap gap-2">
+                  <input className="field text-sm basis-full sm:basis-0 sm:flex-1 min-w-0" value={c.name} aria-label="Capability" onChange={(e) => set({ capabilities: b.capabilities.map((x, k) => (k === i ? { ...x, name: e.target.value } : x)) })} />
+                  <select className="field !w-auto flex-1 sm:flex-none sm:!w-40 text-sm" value={c.status} aria-label="Status" onChange={(e) => set({ capabilities: b.capabilities.map((x, k) => (k === i ? { ...x, status: e.target.value as CapabilityStatus } : x)) })}>
                     <option value="tested">Tested</option><option value="available">Available</option><option value="experimental">Experimental</option><option value="unavailable">Unavailable</option>
                   </select>
                   <button type="button" className="btn-quiet" aria-label="Remove capability" onClick={() => set({ capabilities: b.capabilities.filter((_, k) => k !== i) })}><Icon name="x" size={16} /></button>
@@ -67,7 +67,7 @@ export default function BrandPage() {
 
         <Group title="Accounts and time zones">
           {PLATFORMS.map((p) => (
-            <div key={p} className="grid grid-cols-[100px_1fr_1fr] gap-2 items-center">
+            <div key={p} className="grid grid-cols-[84px_minmax(0,1fr)_minmax(0,1fr)] gap-2 items-center">
               <span className="text-sm">{PLATFORM_LABEL[p]}</span>
               <input className="field text-sm" value={b.handles[p]} aria-label={`${PLATFORM_LABEL[p]} handle`} onChange={(e) => set({ handles: { ...b.handles, [p]: e.target.value } })} />
               <select className="field text-sm" value={b.accountTypes[p]} aria-label={`${PLATFORM_LABEL[p]} account type`} onChange={(e) => set({ accountTypes: { ...b.accountTypes, [p]: e.target.value } })}>
@@ -130,9 +130,9 @@ export default function BrandPage() {
             ))}
           </div>
           <Field label="Logo">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 min-w-0">
               {b.logoDataUrl && <img src={b.logoDataUrl} alt="Logo" className="h-12 w-12 rounded object-contain bg-ink border border-line" />}
-              <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" className="text-sm" onChange={(e) => {
+              <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" className="text-sm min-w-0 w-full max-w-full" aria-label="Logo file" onChange={(e) => {
                 const f = e.target.files?.[0]; if (!f) return;
                 if (f.size > 1024 * 1024) { toast("Logo must be under 1 MB.", "error"); return; }
                 const r = new FileReader(); r.onload = () => set({ logoDataUrl: String(r.result) }); r.readAsDataURL(f);

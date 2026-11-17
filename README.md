@@ -25,6 +25,8 @@ End-to-end browser test (needs Python Playwright + Chrome):
 npm run build && python3 -m http.server 4173 -d out &
 CP_MEDIA=/path/to/testmedia python3 e2e/test_e2e.py
 ```
+Device layout audit (iPhone 18, iPhone Duo closed and open, MacBook window sizes): `python3 e2e/test_devices.py`. Memory flow: `python3 e2e/test_memory.py`.
+
 The test media folder needs `keychain.jpg`, `clip-vertical.mp4`, `clip-horizontal.mov` and a `fake.jpg` (any non-image bytes).
 
 ## Set up accounts and AI

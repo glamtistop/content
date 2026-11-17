@@ -115,7 +115,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <AppCtx.Provider value={value}>
       {children}
-      <div className="fixed z-[60] left-1/2 -translate-x-1/2 flex flex-col gap-2 w-[min(92vw,420px)]" style={{ bottom: "calc(88px + var(--safe-bottom))" }} aria-live="polite">
+      <div className="fixed z-[60] left-1/2 -translate-x-1/2 flex flex-col gap-2 w-[min(92vw,420px)] bottom-[calc(88px+var(--safe-bottom))] lg:bottom-6" aria-live="polite">
         {toasts.map((t) => (
           <div key={t.id} className={`rounded-lg px-4 py-3 text-sm shadow-lg border ${t.kind === "error" ? "bg-[#2a1214] border-bad/60 text-[#ffd0d0]" : "bg-graphite border-teal/40"}`}>{t.text}</div>
         ))}

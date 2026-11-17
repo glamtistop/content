@@ -191,7 +191,7 @@ with sync_playwright() as p:
         for path in ["/", project_url.replace(BASE, ""), "/brand/", "/settings/", "/best-time/", "/create/", "/library/", "/trending/"]:
             page.goto(BASE + path)
             page.wait_for_timeout(500)
-            tabs = ["setup", "script", "post", "review"] if "workspace" in path and vp["width"] < 1280 else [None]
+            tabs = ([t for t in ["setup", "script", "post", "review"] if page.get_by_test_id(f"wtab-{t}").count()] or [None]) if "workspace" in path else [None]
             for t in tabs:
                 if t: page.get_by_test_id(f"wtab-{t}").click(); page.wait_for_timeout(200)
                 ok = no_h_overflow(page)
