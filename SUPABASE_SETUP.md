@@ -45,6 +45,12 @@ About 20 minutes. You'll need: this GitHub repo, a Supabase account (free), and 
 
 Login and sync now work. Each step below is optional and can be done any time.
 
+## Upload size limit
+Supabase's Free plan accepts files up to 50 MB, so ContentPilot limits uploads to 50 MB when you're signed in. Longer videos need trimming or re-exporting at 1080p. After you upgrade Supabase to Pro:
+1. In Supabase, go to **Storage → Settings** and raise the **Global file size limit** (for example, to 500 MB).
+2. On GitHub, go to **Settings → Secrets and variables → Actions → Variables** and add `NEXT_PUBLIC_MAX_UPLOAD_MB` = `500`.
+3. Re-run the **Deploy ContentPilot to GitHub Pages** workflow.
+
 ## Part 6: Turn on AI
 15. **Get a Gemini key:** go to **aistudio.google.com** → **Get API key** → **Create API key**, then copy it.
     - Turn on billing for that key's project. Google's free tier may use your data to improve its models; the paid tier doesn't. Usage costs are small, but add a budget alert in Google Cloud Billing.

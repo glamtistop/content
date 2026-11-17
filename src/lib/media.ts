@@ -32,7 +32,14 @@ export async function validateFile(file: File): Promise<{ ok: true; kind: Kind; 
   if (!sniff) return { ok: false, error: `${file.name} isn't a supported photo or video. Use JPG, PNG, WEBP, HEIC, MP4 or MOV.` };
   if (byExt && byExt.kind !== sniff.kind) return { ok: false, error: `${file.name} says it's a ${byExt.kind} but its contents look like a ${sniff.kind}. Re-export the file and try again.` };
   const limit = sniff.kind === "image" ? LIMITS.imageBytes : LIMITS.videoBytes;
-  if (file.size > limit) return { ok: false, error: `${file.name} is ${fmtBytes(file.size)}. The limit for ${sniff.kind}s is ${fmtBytes(limit)} — trim or compress it first.` };
+  if (file.size > limit) {
+    const fix = sniff.kind === "video"
+      ? LIMITS.planCapped
+        ? " Trim it to the part you need, or re-export at 1080p (iPhone: Settings → Camera → Record Video → 1080p HD). Your storage plan accepts up to 50 MB per file; upgrading Supabase to Pro lifts this (see the setup guide)."
+        : " Trim it or re-export at 1080p first."
+      : " Save it as a smaller JPG first.";
+    return { ok: false, error: `${file.name} is ${fmtBytes(file.size)}. The limit for ${sniff.kind}s is ${fmtBytes(limit)}.${fix}` };
+  }
   if (file.size === 0) return { ok: false, error: `${file.name} is empty.` };
   return { ok: true, kind: sniff.kind, mime: sniff.mime };
 }
